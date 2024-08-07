@@ -89,9 +89,25 @@ class CNOTCircuit:
                         self._M[rowindex][colindex]=1
         
 
+
+    #Convert a binary integer to a vector 
+    def vec_from_integer(self):
+        pass
+
+
+    #Calculate the probability of a certain error pattern    
+    def calc_prob(self,vector):
+        numones=np.sum(vector)
+        return self._p**(numones)*(1-self._p)**(self._num_qubit*(self._T-1)-numones)
+
+
     def show_matrix(self):
         print(self._M)
 
+
+    def calculate_syndrome(self,vector):
+        syndrome_vec=np.matmul(self._M,vector)%2
+        return syndrome_vec
 
 
     def construct_qiskit_circuit(self):
@@ -108,8 +124,16 @@ class CNOTCircuit:
         plt.show()
 
 
-    def calculate_distribution():
-        pass
+    def calculate_distribution_exact(self):
+        distribution={i:0 for i in range(0,self._num_qubit)}
+        num_source=self._num_qubit*(self._T-1)
+        for i in range(0,1<<num_source):
+            pass
+
+
+    def calculate_distribution_sample(self):
+        distribution={i:0 for i in range(0,self._num_qubit)}
+        num_source=self._num_qubit*(self._T-1)        
 
     
 
