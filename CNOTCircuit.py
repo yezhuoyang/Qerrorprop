@@ -2,13 +2,13 @@ import qiskit
 from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
 import networkx as nx
-
+import numpy as np
 
 
 class CNOTCircuit:
 
 
-    def __init__(self, num_qubit, T) -> None:
+    def __init__(self, num_qubit, T, prob) -> None:
         self._num_qubit=num_qubit
         self._T=T
         self._gateList=[]
@@ -17,6 +17,8 @@ class CNOTCircuit:
         self._EPSTGPos={}
         self._RSG=nx.DiGraph()
         self._RSGPos={}
+        self._p=prob
+        self._M=None
 
     #Add a CNOT gate CNOT(control,target) at time
     def add_CNOT(self,control,target,time):
@@ -61,6 +63,10 @@ class CNOTCircuit:
         return nx.has_path(self._EPSTG,"Q"+str(qindex1)+"["+str(t1)+"]","Q"+str(qindex2)+"["+str(self._T-1)+"]")
 
 
+    def RSG_has_edge(self,qindex1,t1,qindex2):
+        return self._RSG.has_edge("Q"+str(qindex1)+"["+str(t1)+"]","Q"+str(qindex2)+"["+str(self._T-1)+"]")
+
+
     def show_EPSTG(self):
         nx.draw(self._EPSTG,with_labels = True,pos=self._EPSTGPos)
         plt.show()
@@ -71,7 +77,21 @@ class CNOTCircuit:
 
     
     def construct_matrix(self):
-        pass
+        rownum=self._num_qubit
+        colnum=self._num_qubit*(self._T-1)
+        self._M=np.zeros((rownum,colnum))
+        for t in range(0,self._T-1):
+            for qindex1 in range(0,self._num_qubit):
+                for qindex2 in range(0,self._num_qubit):
+                    rowindex=qindex2
+                    colindex=t*self._num_qubit+qindex1
+                    if self.RSG_has_edge(qindex1,t,qindex2):
+                        self._M[rowindex][colindex]=1
+        
+
+    def show_matrix(self):
+        print(self._M)
+
 
 
     def construct_qiskit_circuit(self):
