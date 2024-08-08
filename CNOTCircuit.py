@@ -20,6 +20,7 @@ class CNOTCircuit:
         self._RSGPos={}
         self._p=prob
         self._M=None
+        self._dist={}
 
     #Add a CNOT gate CNOT(control,target) at time
     def add_CNOT(self,control,target,time):
@@ -28,6 +29,12 @@ class CNOTCircuit:
 
     def sort_gate_by_time(self):
         self._gateList=sorted(self._gateList, key=lambda x: x[2])
+
+
+    def construct_all(self):
+        self.construct_EPSTG()
+        self.construct_RSG()
+        self.construct_matrix()
 
 
     def construct_EPSTG(self):
@@ -118,10 +125,6 @@ class CNOTCircuit:
 
 
     def calculate_syndrome(self,vector):
-        print("M:")
-        print(self._M)
-        print("Vec:")
-        print(vector)
         syndrome_vec=np.matmul(self._M,vector)%2
         return syndrome_vec
 
@@ -148,6 +151,7 @@ class CNOTCircuit:
             syndrome_vec=self.calculate_syndrome(tmpvec)
             syndromecount=int(np.sum(syndrome_vec))
             distribution[syndromecount]+=self.calc_prob(tmpvec)
+        self._dist=distribution
         return distribution
 
 
@@ -162,7 +166,26 @@ class CNOTCircuit:
             syndromecount=int(np.sum(syndrome_vec))
             distribution[syndromecount]+=1
         distribution={i:distribution[i]/Nsample for i in range(0,self._num_qubit+1)}
+        self._dist=distribution
         return distribution
+    
+
+
+    def show_distribution(self):
+        # Extract keys and values
+        keys = list(self._dist.keys())
+        values = list(self._dist.values())
+
+        # Plotting the distribution
+        plt.figure(figsize=(8, 6))
+        plt.bar(keys, values, color='skyblue')
+        plt.xlabel('Number of errors')
+        plt.ylabel('Probability')
+        plt.title('Distribution of error numbers')
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # Display the plot
+        plt.show()
 
 
 
