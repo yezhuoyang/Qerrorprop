@@ -1,4 +1,3 @@
-import qiskit
 from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -35,6 +34,7 @@ class CNOTCircuit:
         self.construct_EPSTG()
         self.construct_RSG()
         self.construct_matrix()
+        self.construct_qiskit_circuit()
 
 
     def construct_EPSTG(self):
@@ -135,6 +135,7 @@ class CNOTCircuit:
         for (control,target,time) in self._gateList:
             if(time>currenttime):
                 self._qiskitcircuit.barrier(label=str(time))
+                currenttime=time
             self._qiskitcircuit.cx(control,target)
 
 
@@ -188,10 +189,48 @@ class CNOTCircuit:
         plt.show()
 
 
+    def get_expectation_and_std(self):
+        expectation=0
+        expectation_square=0
+        for i in range(0,self._num_qubit+1):
+            expectation+=i*self._dist[i]
+            expectation_square+=i*i*self._dist[i]
+        std=np.sqrt(expectation_square-expectation*expectation)
+        return (expectation,std)
 
 
+
+#Generate a random circuit. In each time window, there are exactly gate_pair_each_T pairs of CNOT gates chosen randomly
+def random_circuit(n_qubits,T,gate_pair_each_T,p):
+    circuit=CNOTCircuit(n_qubits,T,p)
+    numbers = list(range(0, n_qubits))
+    for t in range(0,T):
+        random.shuffle(numbers)
+        for i in range(0,gate_pair_each_T):
+            control=numbers[2*i]
+            target=numbers[2*i+1]
+            circuit.add_CNOT(control,target,t)
+    return circuit
+
+
+
+def transversal_circuit(n_qubits,T,gate_pair_each_T,p):
+    assert n_qubits%2==0
+    circuit=CNOTCircuit(n_qubits,T,p)
+    r=n_qubits//2
+    current_index=0
+    for t in range(0,T):
+        if(current_index+r<n_qubits):
+            for i in range(0,gate_pair_each_T):
+                if(current_index+r<n_qubits):
+                    circuit.add_CNOT(current_index,current_index+r,t)
+                    current_index=current_index+1
+    return circuit
+    
     
 
 
     
+    
+
 
