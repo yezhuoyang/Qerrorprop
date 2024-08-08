@@ -3,7 +3,8 @@ from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-
+import random
+from scipy.stats import bernoulli
 
 class CNOTCircuit:
 
@@ -89,11 +90,22 @@ class CNOTCircuit:
                         self._M[rowindex][colindex]=1
         
 
-
     #Convert a binary integer to a vector 
-    def vec_from_integer(self):
-        pass
-
+    def vec_from_integer(self, integer):
+        dim=self._num_qubit*(self._T-1)
+        array=np.zeros((dim,1))
+        for i in range(0,dim):
+            array[i][0]=integer%2
+            integer=integer>>1
+        return array
+    
+    def vec_from_bitString(self,bitstring):
+        dim=self._num_qubit*(self._T-1)
+        array=np.zeros((dim,1))
+        for i in range(0,dim):
+            if(bitstring[i]==1):
+                array[i][0]=1
+        return array
 
     #Calculate the probability of a certain error pattern    
     def calc_prob(self,vector):
@@ -106,6 +118,10 @@ class CNOTCircuit:
 
 
     def calculate_syndrome(self,vector):
+        print("M:")
+        print(self._M)
+        print("Vec:")
+        print(vector)
         syndrome_vec=np.matmul(self._M,vector)%2
         return syndrome_vec
 
@@ -125,15 +141,31 @@ class CNOTCircuit:
 
 
     def calculate_distribution_exact(self):
-        distribution={i:0 for i in range(0,self._num_qubit)}
+        distribution={i:0 for i in range(0,self._num_qubit+1)}
         num_source=self._num_qubit*(self._T-1)
         for i in range(0,1<<num_source):
-            pass
+            tmpvec=self.vec_from_integer(i)
+            syndrome_vec=self.calculate_syndrome(tmpvec)
+            syndromecount=int(np.sum(syndrome_vec))
+            distribution[syndromecount]+=self.calc_prob(tmpvec)
+        return distribution
 
 
-    def calculate_distribution_sample(self):
-        distribution={i:0 for i in range(0,self._num_qubit)}
-        num_source=self._num_qubit*(self._T-1)        
+    def calculate_distribution_sample(self,Nsample):
+        distribution={i:0 for i in range(0,self._num_qubit+1)}
+        num_source=self._num_qubit*(self._T-1)
+        colnum=self._num_qubit*(self._T-1)
+        for n in range(0,Nsample):
+            bit_string = list(bernoulli.rvs(self._p, size=colnum))
+            tmpvec=self.vec_from_bitString(bit_string)
+            syndrome_vec=self.calculate_syndrome(tmpvec)
+            syndromecount=int(np.sum(syndrome_vec))
+            distribution[syndromecount]+=1
+        distribution={i:distribution[i]/Nsample for i in range(0,self._num_qubit+1)}
+        return distribution
+
+
+
 
     
 
