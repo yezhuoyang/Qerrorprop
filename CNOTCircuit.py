@@ -236,6 +236,18 @@ def transversal_circuit(n_qubits,T,gate_pair_each_T,p):
     return circuit
     
     
+def fully_connected_circuit(n_qubits,T,p):
+    circuit=CNOTCircuit(n_qubits,T,p)
+    for t in range(0,T-1):
+        for ctrl_index in range(0,n_qubits-1):
+            for targ_index in range(ctrl_index+1,n_qubits):
+                circuit.add_CNOT(ctrl_index ,targ_index ,t)
+        for ctrl_index in range(n_qubits-1,0,-1):
+            for targ_index in range(ctrl_index-1,-1,-1):
+                circuit.add_CNOT(ctrl_index ,targ_index ,t)           
+    return circuit
+    
+    
 
 
     
