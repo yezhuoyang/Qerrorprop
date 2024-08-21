@@ -20,6 +20,7 @@ class CNOTCircuit:
         self._p=prob
         self._M=None
         self._dist={}
+        self._entropy=None
 
     #Add a CNOT gate CNOT(control,target) at time
     def add_CNOT(self,control,target,time):
@@ -28,6 +29,13 @@ class CNOTCircuit:
 
     def sort_gate_by_time(self):
         self._gateList=sorted(self._gateList, key=lambda x: x[2])
+
+
+
+    def calculate_entropy(self):
+        non_zero_probs = np.array(list(filter(lambda p: p > 0, self._dist.values())))
+        self._entropy =  -np.sum(non_zero_probs * np.log2(non_zero_probs))
+        return self._entropy
 
 
     def construct_all(self):
