@@ -1,4 +1,9 @@
 from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer.noise import (NoiseModel, QuantumError, ReadoutError,
+    pauli_error, depolarizing_error, thermal_relaxation_error)
+from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -18,8 +23,13 @@ class CNOTCircuit:
         self._RSG=nx.DiGraph()
         self._RSGPos={}
         self._p=prob
+        self._noise_model=NoiseModel()
+        self._noise_gate=pauli_error([('X',  self._p), ('I', 1 - self._p)])
+        self._noise_model.add_all_qubit_quantum_error(self._noise_gate.tensor(self._noise_gate), ["cx"])
+        self._qiskit_result=None
         self._M=None
         self._dist={}
+        self._qiskit_dist={}
         self._entropy=None
 
     #Add a CNOT gate CNOT(control,target) at time
@@ -145,6 +155,7 @@ class CNOTCircuit:
                 self._qiskitcircuit.barrier(label=str(time))
                 currenttime=time
             self._qiskitcircuit.cx(control,target)
+        self._qiskitcircuit.measure_all()
 
 
     def show_circuit(self):
@@ -178,6 +189,15 @@ class CNOTCircuit:
         self._dist=distribution
         return distribution
     
+    def run_qiskit(self,shots):
+        simulator=AerSimulator(noise_model=self._noise_model,shots=shots)
+        
+        self._qiskit_result = simulator.run(self._qiskitcircuit).result()
+        counts = self._qiskit_result.get_counts()
+        self._qiskit_dist={i:0 for i in range(0,self._num_qubit+1)}
+        for key in counts.keys():
+            self._qiskit_dist[key.count('1')]+=counts[key]
+        return self._qiskit_dist
 
 
     def show_distribution(self):
@@ -234,6 +254,16 @@ def transversal_circuit(n_qubits,T,gate_pair_each_T,p):
                     circuit.add_CNOT(current_index,current_index+r,t)
                     current_index=current_index+1
     return circuit
+    
+    
+
+def transversal_parallel_circuit(n_qubits,p):
+    assert n_qubits%2==0
+    circuit=CNOTCircuit(n_qubits,3,p)
+    pass
+
+    
+    
     
     
 def fully_connected_circuit(n_qubits,T,p):
