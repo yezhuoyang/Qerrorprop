@@ -24,13 +24,18 @@ class CNOTCircuit:
         self._RSGPos={}
         self._p=prob
         self._noise_model=NoiseModel()
+        
         self._noise_gate=pauli_error([('X',  self._p), ('I', 1 - self._p)])
-        self._noise_model.add_all_qubit_quantum_error(self._noise_gate.tensor(self._noise_gate), ["cx"])
+        self._noise_model.add_all_qubit_quantum_error(self._noise_gate, ["u1"])
+    
+        #self._noise_model.add_all_qubit_quantum_error(self._noise_gate.tensor(self._noise_gate), ["cx"])
         self._qiskit_result=None
+        self._put_u1_gate=True
         self._M=None
         self._dist={}
         self._qiskit_dist={}
         self._entropy=None
+        self._entropy_qiskit=None
 
     #Add a CNOT gate CNOT(control,target) at time
     def add_CNOT(self,control,target,time):
@@ -46,6 +51,11 @@ class CNOTCircuit:
         non_zero_probs = np.array(list(filter(lambda p: p > 0, self._dist.values())))
         self._entropy =  -np.sum(non_zero_probs * np.log2(non_zero_probs))
         return self._entropy
+    
+    def calculate_entropy_qiskit(self):
+        non_zero_probs = np.array(list(filter(lambda p: p > 0, self._qiskit_dist.values())))
+        self._entropy_qiskit =  -np.sum(non_zero_probs * np.log2(non_zero_probs))
+        return self._entropy_qiskit
 
 
     def construct_all(self):
@@ -150,17 +160,33 @@ class CNOTCircuit:
     def construct_qiskit_circuit(self):
         self.sort_gate_by_time()
         currenttime=0
-        for (control,target,time) in self._gateList:
-            if(time>currenttime):
-                self._qiskitcircuit.barrier(label=str(time))
-                currenttime=time
-            self._qiskitcircuit.cx(control,target)
+        if self._put_u1_gate:
+            gate_index=0
+            for t in range(0,self._T):
+                self._qiskitcircuit.barrier(label=str(t))
+                #First, put a column of identity u1 gate to introduce bitflip errors
+                for qindex in range(0,self._num_qubit):
+                    self._qiskitcircuit.u1(0,qindex)
+                #Then, put CNOT gates
+                while(gate_index<len(self._gateList) and self._gateList[gate_index][2]==t):
+                    (control,target,time)=self._gateList[gate_index]
+                    self._qiskitcircuit.cx(control,target)
+                    gate_index+=1
+        else:
+            for (control,target,time) in self._gateList:
+                if(time>currenttime):
+                    self._qiskitcircuit.barrier(label=str(time))
+                    currenttime=time
+                self._qiskitcircuit.cx(control,target)
         self._qiskitcircuit.measure_all()
 
 
-    def show_circuit(self):
-        self._qiskitcircuit.draw(output="mpl")
-        plt.show()
+    def show_circuit(self,savepath=None):
+        if savepath is not None:
+            self._qiskitcircuit.draw(output="mpl",filename=savepath)
+        else:
+            self._qiskitcircuit.draw(output="mpl")
+            plt.show()
 
 
     def calculate_distribution_exact(self):
@@ -197,6 +223,8 @@ class CNOTCircuit:
         self._qiskit_dist={i:0 for i in range(0,self._num_qubit+1)}
         for key in counts.keys():
             self._qiskit_dist[key.count('1')]+=counts[key]
+            
+        self._qiskit_dist={i:self._qiskit_dist[i]/shots for i in range(0,self._num_qubit+1)}
         return self._qiskit_dist
 
 
@@ -216,7 +244,6 @@ class CNOTCircuit:
         # Display the plot
         plt.show()
 
-
     def get_expectation_and_std(self):
         expectation=0
         expectation_square=0
@@ -226,6 +253,14 @@ class CNOTCircuit:
         std=np.sqrt(expectation_square-expectation*expectation)
         return (expectation,std)
 
+    def get_expectation_and_std_qiskit(self):
+        expectation=0
+        expectation_square=0
+        for i in range(0,self._num_qubit+1):
+            expectation+=i*self._qiskit_dist[i]
+            expectation_square+=i*i*self._qiskit_dist[i]
+        std=np.sqrt(expectation_square-expectation*expectation)
+        return (expectation,std)
 
 
 #Generate a random circuit. In each time window, there are exactly gate_pair_each_T pairs of CNOT gates chosen randomly
@@ -234,6 +269,21 @@ def random_circuit(n_qubits,T,gate_pair_each_T,p):
     numbers = list(range(0, n_qubits))
     for t in range(0,T):
         random.shuffle(numbers)
+        for i in range(0,gate_pair_each_T):
+            control=numbers[2*i]
+            target=numbers[2*i+1]
+            circuit.add_CNOT(control,target,t)
+    return circuit
+
+
+
+#Generate a circuit with only local connection, but the CNOT number is the same as random_circuit
+#We implement it by fixed the shunfulled number list
+def local_connected_circuit(n_qubits,T,gate_pair_each_T,p):
+    circuit=CNOTCircuit(n_qubits,T,p)
+    numbers = list(range(0, n_qubits))
+    random.shuffle(numbers)
+    for t in range(0,T):
         for i in range(0,gate_pair_each_T):
             control=numbers[2*i]
             target=numbers[2*i+1]
@@ -260,7 +310,10 @@ def transversal_circuit(n_qubits,T,gate_pair_each_T,p):
 def transversal_parallel_circuit(n_qubits,p):
     assert n_qubits%2==0
     circuit=CNOTCircuit(n_qubits,3,p)
-    pass
+    r=n_qubits//2
+    for control_index in range(0,r):
+        circuit.add_CNOT(control_index,control_index+r,0)
+    return circuit
 
     
     
